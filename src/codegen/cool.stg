@@ -1,0 +1,110 @@
+sequence(e) ::= "<e; separator=\"\n\">"
+sequenceSpaced(e) ::= "<e; separator=\"\n\n\">"
+program(data, textFuncs, textMain) ::= <<
+.data
+<data>
+.text
+<textFuncs>
+>>
+
+tag(name, number) ::=<<_<name>_tag:
+    .word   <number>
+>>
+
+classObj(name) ::= <<
+    .word <name>_protObj
+    .word <name>_init
+>>
+
+standardObject(label, tag, dispTab, value) ::= <<
+<label>:
+    .word <tag>
+    .word 4
+    .word <dispTab>
+    .word <value>
+>>
+
+// String constant
+stringConst(label, tag, size, dispTab, lengthLabel, value) ::= <<
+<label>:
+    .word <tag>
+    .word <size>
+    .word <dispTab>
+    .word <lengthLabel>
+    .asciiz "<value>"
+    .align 2
+>>
+
+// Prototype object
+prototypeObject(label, tag, size, dispTab, attributes) ::= <<
+<label>:
+    .word <tag>
+    .word <size>
+    .word <dispTab>
+<attributes; separator="\n">
+>>
+
+attribute(value) ::= "    .word <value>"
+
+dispatchTable(label, methods) ::= <<
+<label>:
+<methods; separator="\n">
+>>
+
+method(label) ::= "    .word <label>"
+
+// Stack management fragments
+prologue() ::= <<
+    sw $fp, 0($sp)
+    sw $s0, -4($sp)
+    sw $ra, -8($sp)
+    addiu $sp, $sp, -12
+    addiu $fp, $sp, 4
+    move $s0, $a0
+>>
+
+epilogue() ::= <<
+    lw $ra, -8($fp)
+    lw $s0, -4($fp)
+    lw $fp, 0($fp)
+    addiu $sp, $sp, 12
+    jr $ra
+>>
+
+classInit(className, parentInit, attributes) ::= <<
+<className>_init:
+<prologue()>
+    <if(parentInit)>jal <parentInit><endif>
+    <attributes; separator="\n">
+    move $a0, $s0
+<epilogue()>
+>>
+
+methodDef(className, methodName, body) ::= <<
+<className>.<methodName>:
+<prologue()>
+<body>
+<epilogue()>
+>>
+
+loadInt(label) ::= "    la $a0, <label>"
+loadString(label) ::= "    la $a0, <label>"
+loadBool(value) ::= "    la $a0, bool_const<value>"
+
+// Generic binary operation
+binaryOp(e1, e2, instr, comment) ::= <<
+<e1>
+    sw $a0, 0($sp)
+    addiu $sp, $sp, -4
+<e2>
+    jal Object.copy
+    lw $t1, 4($sp)
+    lw $t1, 12($t1)
+    lw $t2, 12($a0)
+    <instr> $t1, $t1, $t2
+    sw $t1, 12($a0)
+    addiu $sp, $sp, 4<if(comment)>    # <comment><endif>
+>>
+
+plus(e1, e2, comment) ::= "<binaryOp(e1, e2, \"add\", comment)>"
+minus(e1, e2, comment) ::= "<binaryOp(e1, e2, \"sub\", comment)>"
